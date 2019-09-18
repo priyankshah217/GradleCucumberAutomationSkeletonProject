@@ -1,0 +1,82 @@
+import net.masterthought.cucumber.Configuration
+import net.masterthought.cucumber.ReportBuilder
+import net.masterthought.cucumber.Reportable
+
+buildscript {
+    repositories {
+        maven {
+            url "http://repo.bodar.com"
+        }
+        mavenCentral()
+    }
+    dependencies {
+        classpath "net.masterthought:cucumber-reporting:4.9.0"
+    }
+}
+
+plugins {
+    id 'java'
+}
+
+group 'com.technogise'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 12
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testCompile group: 'org.junit.jupiter', name: 'junit-jupiter', version: "$JunitVersion"
+    compile group: 'org.seleniumhq.selenium', name: 'selenium-java', version: "$SeleniumVersion"
+    compile group: 'io.cucumber', name: 'cucumber-java8', version: "$CucumberVersion"
+    testCompile group: 'io.cucumber', name: 'cucumber-junit', version: "$CucumberVersion"
+    compile group: 'net.masterthought', name: 'cucumber-reporting', version: "$CucumberReporting"
+    testCompile group: 'com.google.truth', name: 'truth', version: "$GoogleTruthVersion"
+}
+
+configurations {
+    cucumberRuntime {
+        extendsFrom testRuntime
+    }
+}
+
+
+task e2e() {
+    dependsOn assemble, compileTestJava
+    doLast {
+        def arglist = ["-p", "pretty", "-p", "json:${reporting.baseDir}/cucumber/cucumber.json",
+                       "--glue", "io.sample.automation.stepdefs",
+                       "${project.projectDir}/src/test/resources"]
+
+        def runStatus = javaexec {
+            ignoreExitValue = true
+            main = "io.cucumber.core.cli.Main"
+            classpath = configurations.cucumberRuntime + sourceSets.test.output
+            args = arglist
+            systemProperties System.getProperties()
+        }
+        generateReport()
+        if (runStatus.exitValue != 0)
+            throw new GradleException("Test Failed")
+    }
+}
+
+def generateReport() {
+    def jsonReports = fileTree(dir: "${reporting.baseDir}/cucumber/").include '**/*.json'.toString()
+    File reportOutputDirectory = new File("${reporting.baseDir}/cucumber")
+
+    List<String> jsonReportFiles = new ArrayList<String>()
+    jsonReports.each { File file ->
+        jsonReportFiles.add("${reporting.baseDir}/cucumber/${file.name}".toString())
+    }
+
+    Configuration configuration = new Configuration(reportOutputDirectory, "cucumber-gradle-parallel")
+    // optional configuration
+    configuration.setBuildNumber("1988")
+
+    ReportBuilder reportBuilder = new ReportBuilder(jsonReportFiles, configuration)
+    Reportable result = reportBuilder.generateReports()
+    println("\nReport available on: ${reporting.baseDir}/cucumber/cucumber-html-reports/overview-features.html")
+}
