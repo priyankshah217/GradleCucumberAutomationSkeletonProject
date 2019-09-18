@@ -1,4 +1,4 @@
-Business Need: Able to add operation between two numbers
+Business Need: Able to do operation between two numbers
 
   Scenario: Add two numbers
     When I "add" 2 and 3
